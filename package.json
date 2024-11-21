@@ -1,97 +1,61 @@
 {
-  "name": "chatgpt",
-  "version": "2.0.5",
-  "description": "Node.js client for the unofficial ChatGPT API.",
+  "name": "agentic",
+  "private": true,
   "author": "Travis Fischer <travis@transitivebullsh.it>",
-  "repository": "transitive-bullshit/chatgpt-api",
   "license": "MIT",
-  "type": "module",
-  "source": "./src/index.ts",
-  "types": "./build/index.d.ts",
-  "exports": {
-    ".": {
-      "browser": "./build/browser/index.js",
-      "import": "./build/index.js",
-      "types": "./build/index.d.ts",
-      "default": "./build/index.js"
-    }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/transitive-bullshit/agentic.git"
   },
-  "files": [
-    "build"
-  ],
+  "packageManager": "pnpm@9.12.2",
   "engines": {
-    "node": ">=16.8"
+    "node": ">=18"
   },
+  "type": "module",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "clean": "del build",
-    "prebuild": "run-s clean",
-    "postbuild": "[ -n CI ] && sed -i '' 's/await import(\"undici\")/null/' build/browser/index.js || echo 'skipping postbuild on CI'",
-    "predev": "run-s clean",
+    "build": "turbo build",
+    "dev": "turbo dev --concurrency 50 --continue",
+    "docs": "cd docs && npx mintlify dev",
+    "clean": "turbo clean",
+    "test": "turbo test",
+    "test:format": "prettier --check \"**/*.{js,ts,tsx}\"",
+    "test:lint": "turbo test:lint",
+    "test:typecheck": "turbo test:typecheck",
+    "test:unit": "turbo test:unit",
+    "changeset": "changeset",
+    "release": "run-s release:*",
+    "release:build": "run-s build",
+    "release:version": "changeset version",
+    "release:publish": "changeset publish",
     "pretest": "run-s build",
-    "docs": "typedoc",
-    "prepare": "husky install",
-    "pre-commit": "lint-staged",
-    "test": "run-p test:*",
-    "test:unit": "ava",
-    "test:prettier": "prettier '**/*.{js,jsx,ts,tsx}' --check"
-  },
-  "dependencies": {
-    "eventsource-parser": "^0.0.5",
-    "expiry-map": "^2.0.0",
-    "p-timeout": "^6.0.0",
-    "remark": "^14.0.2",
-    "strip-markdown": "^5.0.0",
-    "uuid": "^9.0.0"
+    "precommit": "lint-staged",
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^4.0.0",
-    "@types/node": "^18.11.9",
-    "@types/uuid": "^9.0.0",
-    "ava": "^5.1.0",
-    "del-cli": "^5.0.0",
-    "dotenv-safe": "^8.2.0",
-    "husky": "^8.0.2",
-    "lint-staged": "^13.0.3",
-    "npm-run-all": "^4.1.5",
-    "ora": "^6.1.2",
-    "prettier": "^2.8.0",
-    "tsup": "^6.5.0",
-    "tsx": "^3.12.1",
-    "typedoc": "^0.23.21",
-    "typedoc-plugin-markdown": "^3.13.6",
-    "typescript": "^4.9.3"
-  },
-  "optionalDependencies": {
-    "undici": "^5.13.0"
+    "@changesets/cli": "^2.27.10",
+    "@fisch0920/eslint-config": "^1.4.0",
+    "@total-typescript/ts-reset": "^0.6.1",
+    "@types/node": "^22.9.1",
+    "del-cli": "^6.0.0",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "npm-run-all2": "^7.0.0",
+    "only-allow": "^1.2.1",
+    "prettier": "^3.3.3",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.1",
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.3",
+    "vitest": "2.1.5",
+    "zod": "^3.23.8"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "prettier --write"
+      "prettier --ignore-unknown --write",
+      "eslint --fix"
     ]
-  },
-  "ava": {
-    "extensions": {
-      "ts": "module"
-    },
-    "nodeArguments": [
-      "--loader=tsx"
-    ]
-  },
-  "keywords": [
-    "openai",
-    "chatgpt",
-    "gpt",
-    "gpt3",
-    "gpt4",
-    "chatbot",
-    "chat",
-    "machine learning",
-    "conversation",
-    "conversational ai",
-    "ai",
-    "ml",
-    "bot"
-  ]
+  }
 }

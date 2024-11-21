@@ -1,229 +1,194 @@
 <p align="center">
-  <img alt="Example usage" src="/media/demo.gif">
+  <a href="https://agentic.so">
+    <img alt="Agentic" src="/docs/media/agentic-header.jpg" width="308">
+  </a>
 </p>
 
-# ChatGPT API <!-- omit in toc -->
+<p align="center">
+  <em>AI agent stdlib that works with any LLM and TypeScript AI SDK.</em>
+</p>
 
-> Node.js client for the unofficial [ChatGPT](https://openai.com/blog/chatgpt/) API.
+<p align="center">
+  <a href="https://github.com/transitive-bullshit/agentic/actions/workflows/main.yml"><img alt="Build Status" src="https://github.com/transitive-bullshit/agentic/actions/workflows/main.yml/badge.svg" /></a>
+  <a href="https://www.npmjs.com/package/@agentic/stdlib"><img alt="NPM" src="https://img.shields.io/npm/v/@agentic/stdlib.svg" /></a>
+  <a href="https://github.com/transitive-bullshit/agentic/blob/main/license"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue" /></a>
+  <a href="https://prettier.io"><img alt="Prettier Code Formatting" src="https://img.shields.io/badge/code_style-prettier-brightgreen.svg" /></a>
+</p>
 
-[![NPM](https://img.shields.io/npm/v/chatgpt.svg)](https://www.npmjs.com/package/chatgpt) [![Build Status](https://github.com/transitive-bullshit/chatgpt-api/actions/workflows/test.yml/badge.svg)](https://github.com/transitive-bullshit/chatgpt-api/actions/workflows/test.yml) [![MIT License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/transitive-bullshit/chatgpt-api/blob/main/license) [![Prettier Code Formatting](https://img.shields.io/badge/code_style-prettier-brightgreen.svg)](https://prettier.io)
+# Agentic <!-- omit from toc -->
 
 - [Intro](#intro)
-- [Install](#install)
-- [Usage](#usage)
-  - [Docs](#docs)
-  - [Demos](#demos)
-  - [Session Tokens](#session-tokens)
-- [Projects](#projects)
-- [Compatibility](#compatibility)
-- [Credits](#credits)
+- [Docs](#docs)
+- [AI SDKs](#ai-sdks)
+  - [Vercel AI SDK](#vercel-ai-sdk)
+  - [LangChain](#langchain)
+  - [LlamaIndex](#llamaindex)
+  - [Firebase Genkit](#firebase-genkit)
+  - [Dexa Dexter](#dexa-dexter)
+  - [OpenAI](#openai)
+- [Tools](#tools)
+- [Contributors](#contributors)
 - [License](#license)
 
 ## Intro
 
-This package is a Node.js wrapper around [ChatGPT](https://openai.com/blog/chatgpt) by [OpenAI](https://openai.com). TS batteries included. ✨
+Agentic is a **standard library of AI functions / tools** which are **optimized for both normal TS-usage as well as LLM-based usage**. Agentic works with all of the major TS AI SDKs (LangChain, LlamaIndex, Vercel AI SDK, OpenAI SDK, etc).
 
-You can use it to start building projects powered by ChatGPT like chatbots, websites, etc...
-
-## Install
-
-```bash
-npm install chatgpt
-```
-
-## Usage
-
-> **Note**
-> Per the official OpenAI Discord on December 7th, 2022: The ChatGPT servers are currently experiencing "exceptionally high demand," so some requests may respond with [HTTP 503 errors](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503).
+Agentic clients like `WeatherClient` can be used as normal TS classes:
 
 ```ts
-import { ChatGPTAPI } from 'chatgpt'
+import { WeatherClient } from '@agentic/stdlib'
 
-async function example() {
-  // sessionToken is required; see below for details
-  const api = new ChatGPTAPI({
-    sessionToken: process.env.SESSION_TOKEN
+// Requires `process.env.WEATHER_API_KEY` (free from weatherapi.com)
+const weather = new WeatherClient()
+
+const result = await weather.getCurrentWeather({
+  q: 'San Francisco'
+})
+console.log(result)
+```
+
+Or you can use these clients as **LLM-based tools** where the LLM decides when and how to invoke the underlying functions for you.
+
+This works across all of the major AI SDKs via adapters. Here's an example using [Vercel's AI SDK](https://github.com/vercel/ai):
+
+```ts
+// sdk-specific imports
+import { openai } from '@ai-sdk/openai'
+import { generateText } from 'ai'
+import { createAISDKTools } from '@agentic/ai-sdk'
+
+// sdk-agnostic imports
+import { WeatherClient } from '@agentic/stdlib'
+
+const weather = new WeatherClient()
+
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  // this is the key line which uses the `@agentic/ai-sdk` adapter
+  tools: createAISDKTools(weather),
+  toolChoice: 'required',
+  prompt: 'What is the weather in San Francisco?'
+})
+
+console.log(result.toolResults[0])
+```
+
+You can use our standard library of thoroughly tested AI functions with your favorite AI SDK – without having to write any glue code!
+
+Here's a slightly more complex example which uses multiple clients and selects a subset of their functions using the `AIFunctionSet.pick` method:
+
+```ts
+// sdk-specific imports
+import { ChatModel, createAIRunner } from '@dexaai/dexter'
+import { createDexterFunctions } from '@agentic/dexter'
+
+// sdk-agnostic imports
+import { PerigonClient, SerperClient } from '@agentic/stdlib'
+
+async function main() {
+  // Perigon is a news API and Serper is a Google search API
+  const perigon = new PerigonClient()
+  const serper = new SerperClient()
+
+  const runner = createAIRunner({
+    chatModel: new ChatModel({
+      params: { model: 'gpt-4o-mini', temperature: 0 }
+    }),
+    functions: createDexterFunctions(
+      perigon.functions.pick('search_news_stories'),
+      serper
+    ),
+    systemMessage: 'You are a helpful assistant. Be as concise as possible.'
   })
 
-  // ensure the API is properly authenticated
-  await api.ensureAuth()
-
-  // send a message and wait for the response
-  const response = await api.sendMessage(
-    'Write a python version of bubble sort.'
+  const result = await runner(
+    'Summarize the latest news stories about the upcoming US election.'
   )
-
-  // response is a markdown-formatted string
-  console.log(response)
+  console.log(result)
 }
 ```
 
-ChatGPT responses are formatted as markdown by default. If you want to work with plaintext instead, you can use:
+## Docs
 
-```ts
-const api = new ChatGPTAPI({
-  sessionToken: process.env.SESSION_TOKEN,
-  markdown: false
-})
-```
+Full docs are available at [agentic.so](https://agentic.so).
 
-If you want to automatically track the conversation, you can use `ChatGPTAPI.getConversation()`:
+## AI SDKs
 
-```ts
-const api = new ChatGPTAPI({
-  sessionToken: process.env.SESSION_TOKEN
-})
+### Vercel AI SDK
 
-const conversation = api.getConversation()
+[Agentic adapter docs for the Vercel AI SDK](https://agentic.so/sdks/ai-sdk)
 
-// send a message and wait for the response
-const response0 = await conversation.sendMessage('What is OpenAI?')
+### LangChain
 
-// send a follow-up prompt to the previous message and wait for the response
-const response1 = await conversation.sendMessage('Can you expand on that?')
+[Agentic adapter docs for LangChain](https://agentic.so/sdks/langchain)
 
-// send another follow-up to the same conversation
-const response2 = await conversation.sendMessage('Oh cool; thank you')
-```
+### LlamaIndex
 
-Sometimes, ChatGPT will hang for an extended period of time before beginning to respond. This may be due to rate limiting or it may be due to OpenAI's servers being overloaded.
+[Agentic adapter docs for LlamaIndex](https://agentic.so/sdks/llamaindex)
 
-To mitigate these issues, you can add a timeout like this:
+### Firebase Genkit
 
-```ts
-// timeout after 2 minutes (which will also abort the underlying HTTP request)
-const response = await api.sendMessage('this is a timeout test', {
-  timeoutMs: 2 * 60 * 1000
-})
-```
+[Agentic adapter docs for Genkit](https://agentic.so/sdks/genkit)
 
-You can stream responses using the `onProgress` or `onConversationResponse` callbacks. See the [docs](./docs/classes/ChatGPTAPI.md) for more details.
+### Dexa Dexter
 
-<details>
-<summary>Usage in CommonJS (Dynamic import)</summary>
+[Agentic adapter docs for Dexter](https://agentic.so/sdks/dexter)
 
-```js
-async function example() {
-  // To use ESM in CommonJS, you can use a dynamic import
-  const { ChatGPTAPI } = await import('chatgpt')
+### OpenAI
 
-  const api = new ChatGPTAPI({
-    sessionToken: process.env.SESSION_TOKEN
-  })
-  await api.ensureAuth()
+[Agentic adapter docs for OpenAI](https://agentic.so/sdks/openai)
 
-  const response = await api.sendMessage('Hello World!')
-  console.log(response)
-}
-```
+### GenAIScript
 
-</details>
+[Agentic support in GenAIScript](https://agentic.so/sdks/genaiscript)
 
-### Docs
+## Tools
 
-See the [auto-generated docs](./docs/classes/ChatGPTAPI.md) for more info on methods and parameters.
+| Service / Tool                                                           | Package                     | Docs                                              | Description                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Bing](https://www.microsoft.com/en-us/bing/apis/bing-web-search-api)    | `@agentic/bing`             | [docs](https://agentic.so/tools/bing)             | Bing web search.                                                                                                                                                                                                                                               |
+| [Calculator](https://github.com/josdejong/mathjs)                        | `@agentic/calculator`       | [docs](https://agentic.so/tools/calculator)       | Basic calculator for simple mathematical expressions.                                                                                                                                                                                                          |
+| [Clearbit](https://dashboard.clearbit.com/docs)                          | `@agentic/clearbit`         | [docs](https://agentic.so/tools/clearbit)         | Resolving and enriching people and company data.                                                                                                                                                                                                               |
+| [Dexa](https://dexa.ai)                                                  | `@agentic/dexa`             | [docs](https://agentic.so/tools/dexa)             | Answers questions from the world's best podcasters.                                                                                                                                                                                                            |
+| [Diffbot](https://docs.diffbot.com)                                      | `@agentic/diffbot`          | [docs](https://agentic.so/tools/diffbot)          | Web page classification and scraping; person and company data enrichment.                                                                                                                                                                                      |
+| [E2B](https://e2b.dev)                                                   | `@agentic/e2b`              | [docs](https://agentic.so/tools/e2b)              | Hosted Python code interpreter sandbox which is really useful for data analysis, flexible code execution, and advanced reasoning on-the-fly.                                                                                                                   |
+| [Exa](https://docs.exa.ai)                                               | `@agentic/exa`              | [docs](https://agentic.so/tools/exa)              | Web search tailored for LLMs.                                                                                                                                                                                                                                  |
+| [Firecrawl](https://www.firecrawl.dev)                                   | `@agentic/firecrawl`        | [docs](https://agentic.so/tools/firecrawl)        | Website scraping and structured data extraction.                                                                                                                                                                                                               |
+| [HackerNews](https://github.com/HackerNews/API)                          | `@agentic/hacker-news`      | [docs](https://agentic.so/tools/hacker-news)      | Official HackerNews API.                                                                                                                                                                                                                                       |
+| [Hunter](https://hunter.io)                                              | `@agentic/hunter`           | [docs](https://agentic.so/tools/hunter)           | Email finder, verifier, and enrichment.                                                                                                                                                                                                                        |
+| [Jina](https://jina.ai/reader)                                           | `@agentic/jina`             | [docs](https://agentic.so/tools/jina)             | URL scraper and web search.                                                                                                                                                                                                                                    |
+| [Midjourney](https://www.imagineapi.dev)                                 | `@agentic/midjourney`       | [docs](https://agentic.so/tools/midjourney)       | Unofficial Midjourney client for generative images.                                                                                                                                                                                                            |
+| [Novu](https://novu.co)                                                  | `@agentic/novu`             | [docs](https://agentic.so/tools/novu)             | Sending notifications (email, SMS, in-app, push, etc).                                                                                                                                                                                                         |
+| [People Data Labs](https://www.peopledatalabs.com)                       | `@agentic/people-data-labs` | [docs](https://agentic.so/tools/people-data-labs) | People & company data (WIP).                                                                                                                                                                                                                                   |
+| [Perigon](https://www.goperigon.com/products/news-api)                   | `@agentic/perigon`          | [docs](https://agentic.so/tools/perigon)          | Real-time news API and web content data from 140,000+ sources. Structured and enriched by AI, primed for LLMs.                                                                                                                                                 |
+| [Polygon](https://polygon.io)                                            | `@agentic/polygon`          | [docs](https://agentic.so/tools/polygon)          | Stock market and company financial data.                                                                                                                                                                                                                       |
+| [PredictLeads](https://predictleads.com)                                 | `@agentic/predict-leads`    | [docs](https://agentic.so/tools/predict-leads)    | In-depth company data including signals like fundraising events, hiring news, product launches, technologies used, etc.                                                                                                                                        |
+| [Proxycurl](https://nubela.co/proxycurl)                                 | `@agentic/proxycurl`        | [docs](https://agentic.so/tools/proxycurl)        | People and company data from LinkedIn & Crunchbase.                                                                                                                                                                                                            |
+| [Searxng](https://docs.searxng.org)                                      | `@agentic/searxng`          | [docs](https://agentic.so/tools/searxng)          | OSS meta search engine capable of searching across many providers like Reddit, Google, Brave, Arxiv, Genius, IMDB, Rotten Tomatoes, Wikidata, Wolfram Alpha, YouTube, GitHub, [etc](https://docs.searxng.org/user/configured_engines.html#configured-engines). |
+| [SerpAPI](https://serpapi.com/search-api)                                | `@agentic/serpapi`          | [docs](https://agentic.so/tools/serpapi)          | Lightweight wrapper around SerpAPI for Google search.                                                                                                                                                                                                          |
+| [Serper](https://serper.dev)                                             | `@agentic/serper`           | [docs](https://agentic.so/tools/serper)           | Lightweight wrapper around Serper for Google search.                                                                                                                                                                                                           |
+| [Slack](https://api.slack.com/docs)                                      | `@agentic/slack`            | [docs](https://agentic.so/tools/slack)            | Send and receive Slack messages.                                                                                                                                                                                                                               |
+| [SocialData](https://socialdata.tools)                                   | `@agentic/social-data`      | [docs](https://agentic.so/tools/social-data)      | Unofficial Twitter / X client (readonly) which is much cheaper than the official Twitter API.                                                                                                                                                                  |
+| [Tavily](https://tavily.com)                                             | `@agentic/tavily`           | [docs](https://agentic.so/tools/tavily)           | Web search API tailored for LLMs.                                                                                                                                                                                                                              |
+| [Twilio](https://www.twilio.com/docs/conversations/api)                  | `@agentic/twilio`           | [docs](https://agentic.so/tools/twilio)           | Twilio conversation API to send and receive SMS messages.                                                                                                                                                                                                      |
+| [Twitter](https://developer.x.com/en/docs/twitter-api)                   | `@agentic/twitter`          | [docs](https://agentic.so/tools/twitter)          | Basic Twitter API methods for fetching users, tweets, and searching recent tweets. Includes support for plan-aware rate-limiting. Uses [Nango](https://www.nango.dev) for OAuth support.                                                                       |
+| [Weather](https://www.weatherapi.com)                                    | `@agentic/weather`          | [docs](https://agentic.so/tools/weather)          | Basic access to current weather data based on location.                                                                                                                                                                                                        |
+| [Wikidata](https://www.wikidata.org/wiki/Wikidata:Data_access)           | `@agentic/wikidata`         | [docs](https://agentic.so/tools/wikidata)         | Basic Wikidata client.                                                                                                                                                                                                                                         |
+| [Wikipedia](https://www.mediawiki.org/wiki/API)                          | `@agentic/wikipedia`        | [docs](https://agentic.so/tools/wikipedia)        | Wikipedia page search and summaries.                                                                                                                                                                                                                           |
+| [Wolfram Alpha](https://products.wolframalpha.com/llm-api/documentation) | `@agentic/wolfram-alpha`    | [docs](https://agentic.so/tools/wolfram-alpha)    | Wolfram Alpha LLM API client for answering computational, mathematical, and scientific questions.                                                                                                                                                              |
 
-### Demos
+For more details, see the [docs](https://agentic.so).
 
-A [basic demo](./src/demo.ts) is included for testing purposes:
+## Contributors
 
-```bash
-# 1. clone repo
-# 2. install node deps
-# 3. set `SESSION_TOKEN` in .env
-# 4. run:
-npx tsx src/demo.ts
-```
-
-A [conversation demo](./src/demo-conversation.ts) is also included:
-
-```bash
-# 1. clone repo
-# 2. install node deps
-# 3. set `SESSION_TOKEN` in .env
-# 4. run:
-npx tsx src/demo-conversation.ts
-```
-
-### Session Tokens
-
-**This package requires a valid session token from ChatGPT to access it's unofficial REST API.**
-
-To get a session token:
-
-1. Go to https://chat.openai.com/chat and log in or sign up.
-2. Open dev tools.
-3. Open `Application` > `Cookies`.
-   ![ChatGPT cookies](./media/session-token.png)
-4. Copy the value for `__Secure-next-auth.session-token` and save it to your environment.
-
-If you want to run the built-in demo, store this value as `SESSION_TOKEN` in a local `.env` file.
-
-> **Note**
-> This package will switch to using the official API once it's released.
-
-> **Note**
-> Prior to v1.0.0, this package used a headless browser via [Playwright](https://playwright.dev/) to automate the web UI. Here are the [docs for the initial browser version](https://github.com/transitive-bullshit/chatgpt-api/tree/v0.4.2).
-
-## Projects
-
-All of these awesome projects are built using the `chatgpt` package. 🤯
-
-- [Twitter Bot](https://github.com/transitive-bullshit/chatgpt-twitter-bot) powered by ChatGPT ✨
-  - Mention [@ChatGPTBot](https://twitter.com/ChatGPTBot) on Twitter with your prompt to try it out
-- [Chrome Extension](https://github.com/gragland/chatgpt-everywhere) ([demo](https://twitter.com/gabe_ragland/status/1599466486422470656))
-- [VSCode Extension #1](https://github.com/mpociot/chatgpt-vscode) ([demo](https://twitter.com/marcelpociot/status/1599180144551526400), [updated version](https://github.com/timkmecl/chatgpt-vscode), [marketplace](https://marketplace.visualstudio.com/items?itemName=timkmecl.chatgpt))
-- [VSCode Extension #2](https://github.com/barnesoir/chatgpt-vscode-plugin) ([marketplace](https://marketplace.visualstudio.com/items?itemName=JayBarnes.chatgpt-vscode-plugin))
-- [VSCode Extension #3](https://github.com/gencay/vscode-chatgpt) ([marketplace](https://marketplace.visualstudio.com/items?itemName=gencay.vscode-chatgpt))
-- [Raycast Extension #1](https://github.com/abielzulio/chatgpt-raycast) ([demo](https://twitter.com/abielzulio/status/1600176002042191875))
-- [Raycast Extension #2](https://github.com/domnantas/raycast-chatgpt)
-- [Telegram Bot #1](https://github.com/realies/chatgpt-telegram-bot)
-- [Telegram Bot #2](https://github.com/dawangraoming/chatgpt-telegram-bot)
-- [Deno Telegram Bot](https://github.com/Ciyou/chatbot-telegram)
-- [Go Telegram Bot](https://github.com/m1guelpf/chatgpt-telegram)
-- [GitHub ProBot](https://github.com/oceanlvr/ChatGPTBot)
-- [Discord Bot #1](https://github.com/onury5506/Discord-ChatGPT-Bot)
-- [Discord Bot #2](https://github.com/Nageld/ChatGPT-Bot)
-- [Discord Bot #3](https://github.com/leinstay/gptbot)
-- [WeChat Bot #1](https://github.com/AutumnWhj/ChatGPT-wechat-bot)
-- [WeChat Bot #2](https://github.com/fuergaosi233/wechat-chatgpt)
-- [WeChat Bot #3](https://github.com/wangrongding/wechat-bot)
-- [WeChat Bot #4](https://github.com/darknightlab/wechat-bot)
-- [WeChat Bot #5](https://github.com/sunshanpeng/wechaty-chatgpt)
-- [QQ Bot (plugin for Yunzai-bot)](https://github.com/ikechan8370/chatgpt-plugin)
-- [QQ Bot (plugin for KiviBot)](https://github.com/KiviBotLab/kivibot-plugin-chatgpt)
-- [QQ Bot (oicq)](https://github.com/easydu2002/chat_gpt_oicq)
-- [Lovelines.xyz](https://lovelines.xyz)
-- [EXM smart contracts](https://github.com/decentldotland/molecule)
-- [Flutter ChatGPT API](https://github.com/coskuncay/flutter_chatgpt_api)
-- [Carik Bot](https://github.com/luridarmawan/Carik)
-- [Github Action for reviewing PRs](https://github.com/kxxt/chatgpt-action/)
-- [WhatsApp Bot](https://github.com/amosayomide05/chatgpt-whatsapp-bot)
-- [Matrix Bot](https://github.com/jakecoppinger/matrix-chatgpt-bot)
-
-If you create a cool integration, feel free to open a PR and add it to the list.
-
-## Compatibility
-
-This package is ESM-only. It supports:
-
-- Node.js >= 16.8
-  - If you need Node.js 14 support, use [`v1.4.0`](https://github.com/transitive-bullshit/chatgpt-api/releases/tag/v1.4.0)
-- Edge runtimes like CF workers and Vercel edge functions
-- Modern browsers
-  - Mainly meant for chrome extensions where your code is protected to a degree
-  - We recommend against using `chatgpt` from client-side browser code because it would expose your private session token
-  - If you want to build a website using `chatgpt`, we recommend using it only from your backend API
-
-## Credits
-
-- Huge thanks to [@simon300000](https://github.com/simon300000), [@RomanHotsiy](https://github.com/RomanHotsiy), [@ElijahPepe](https://github.com/ElijahPepe), and all the other contributors 💪
-- The original browser version was inspired by this [Go module](https://github.com/danielgross/whatsapp-gpt) by [Daniel Gross](https://github.com/danielgross)
-- The original REST version was inspired by [chat-gpt-google-extension](https://github.com/wong2/chat-gpt-google-extension) by [@wong2](https://github.com/wong2)
-- [OpenAI](https://openai.com) for creating [ChatGPT](https://openai.com/blog/chatgpt/) 🔥
+- [Travis Fischer](https://x.com/transitive_bs)
+- [David Zhang](https://x.com/dzhng)
+- [Philipp Burckhardt](https://x.com/burckhap)
+- And all of the [amazing OSS contributors](https://github.com/transitive-bullshit/agentic/graphs/contributors)!
 
 ## License
 
-MIT © [Travis Fischer](https://transitivebullsh.it)
+MIT © [Travis Fischer](https://x.com/transitive_bs)
 
-If you found this project interesting, please consider [sponsoring me](https://github.com/sponsors/transitive-bullshit) or <a href="https://twitter.com/transitive_bs">following me on twitter <img src="https://storage.googleapis.com/saasify-assets/twitter-logo.svg" alt="twitter" height="24px" align="center"></a>
+To stay up to date or learn more, follow [@transitive_bs](https://x.com/transitive_bs) on Twitter.
